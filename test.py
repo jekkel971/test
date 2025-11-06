@@ -4,8 +4,8 @@ import numpy as np
 import json
 import os
 
-st.set_page_config(page_title="Analyse de matchs", layout="wide")
-st.title("⚽ Analyseur de matchs manuel – version avancée avec base de données des équipes")
+st.set_page_config(page_title="Analyse de matchs avec mise à jour automatique", layout="wide")
+st.title("⚽ Analyseur de matchs – formes auto-mises à jour")
 
 # ---------------- FICHIER DES FORMES ----------------
 FORM_FILE = "teams_form.json"
@@ -36,30 +36,29 @@ with st.form("match_form", clear_on_submit=True):
     cote_home = st.number_input("Cote Domicile", 1.01, 10.0, 1.5)
     cote_away = st.number_input("Cote Extérieure", 1.01, 10.0, 1.5)
 
-    st.subheader("Historique Domicile (saison)")
+    st.subheader("Historique Domicile")
     home_wins = st.number_input("Victoires Domicile", 0, 50, 0)
     home_draws = st.number_input("Nuls Domicile", 0, 50, 0)
     home_losses = st.number_input("Défaites Domicile", 0, 50, 0)
     home_goals_scored = st.number_input("Buts marqués Domicile", 0, 200, 0)
     home_goals_against = st.number_input("Buts encaissés Domicile", 0, 200, 0)
-    # pré-remplir avec la forme enregistrée si elle existe
     default_home_last5 = teams_form.get(home_team, "v,v,n,d,d")
-    home_last5 = st.text_input("5 derniers matchs Domicile (ex: v,v,n,d,d)", value=default_home_last5)
+    home_last5 = st.text_input("5 derniers matchs Domicile (v,n,d)", value=default_home_last5)
 
-    st.subheader("Historique Extérieur (saison)")
+    st.subheader("Historique Extérieur")
     away_wins = st.number_input("Victoires Extérieures", 0, 50, 0)
     away_draws = st.number_input("Nuls Extérieurs", 0, 50, 0)
     away_losses = st.number_input("Défaites Extérieures", 0, 50, 0)
     away_goals_scored = st.number_input("Buts marqués Extérieur", 0, 200, 0)
     away_goals_against = st.number_input("Buts encaissés Extérieur", 0, 200, 0)
     default_away_last5 = teams_form.get(away_team, "v,v,n,d,d")
-    away_last5 = st.text_input("5 derniers matchs Extérieur (ex: v,d,v,n,d)", value=default_away_last5)
+    away_last5 = st.text_input("5 derniers matchs Extérieur (v,n,d)", value=default_away_last5)
 
     submitted = st.form_submit_button("➕ Ajouter le match")
 
 # ---------------- AJOUT DES DONNÉES ----------------
 if submitted:
-    # Mettre à jour la base de données des formes
+    # Enregistrer la forme actuelle dans la base
     teams_form[home_team] = home_last5.lower()
     teams_form[away_team] = away_last5.lower()
     with open(FORM_FILE, "w") as f:
@@ -88,7 +87,7 @@ if submitted:
     ], ignore_index=True)
     st.success(f"✅ Match ajouté : {home_team} vs {away_team}")
 
-# ---------------- ALGORITHME D’ANALYSE ----------------
+# ---------------- ANALYSE ----------------
 def calculate_form_score(sequence):
     mapping = {"v": 3, "n": 1, "d": 0}
     seq = [mapping.get(x.strip(), 0) for x in sequence.split(",")]
@@ -117,14 +116,48 @@ def analyze(df):
             "Winner": winner,
             "Probabilité victoire": round(max(prob_home, prob_away) * 100, 2),
             "Score Sécurité": round(abs(prob_home - prob_away) * 100, 1),
+            "home_form_score": home_form,
+            "away_form_score": away_form
         })
     return pd.DataFrame(results)
+
+# ---------------- MISE À JOUR DES FORMES ----------------
+def update_form_after_match(df_analysis, df_matches):
+    for idx, row in df_analysis.iterrows():
+        winner = row["Winner"]
+        home_team = row["home_team"]
+        away_team = row["away_team"]
+
+        # Mise à jour home_last5
+        home_seq = teams_form.get(home_team, "v,v,n,d,d").split(",")[:4]
+        if winner == home_team:
+            home_seq = ["v"] + home_seq
+        elif winner == away_team:
+            home_seq = ["d"] + home_seq
+        else:
+            home_seq = ["n"] + home_seq
+        teams_form[home_team] = ",".join(home_seq)
+
+        # Mise à jour away_last5
+        away_seq = teams_form.get(away_team, "v,v,n,d,d").split(",")[:4]
+        if winner == away_team:
+            away_seq = ["v"] + away_seq
+        elif winner == home_team:
+            away_seq = ["d"] + away_seq
+        else:
+            away_seq = ["n"] + away_seq
+        teams_form[away_team] = ",".join(away_seq)
+
+    # Sauvegarder
+    with open(FORM_FILE, "w") as f:
+        json.dump(teams_form, f)
 
 # ---------------- AFFICHAGE ----------------
 if len(st.session_state.matches_df) > 0:
     st.subheader("📊 Analyse des matchs saisis")
     df_analysis = analyze(st.session_state.matches_df)
-    st.dataframe(df_analysis.sort_values(by="Score Sécurité", ascending=False), use_container_width=True)
+    df_analysis = df_analysis.sort_values(by="Score Sécurité", ascending=False)
+    st.dataframe(df_analysis[["home_team","away_team","Winner","Probabilité victoire","Score Sécurité"]], use_container_width=True)
 
     # Calcul des mises avec Kelly
     st.subheader("💰 Recommandation de mise (Kelly simplifié)")
@@ -140,9 +173,12 @@ if len(st.session_state.matches_df) > 0:
         q = 1 - p
         f_star = max((b * p - q) / b, 0)
         mises.append(round(f_star * budget_total, 2))
-
     df_analysis["Mise conseillée (€)"] = mises
     st.dataframe(df_analysis[["home_team","away_team","Winner","Probabilité victoire","Score Sécurité","Mise conseillée (€)"]], use_container_width=True)
+
+    # Mettre à jour automatiquement la forme après analyse
+    update_form_after_match(df_analysis, st.session_state.matches_df)
+    st.success("✅ Formes mises à jour automatiquement")
 
     # Télécharger les résultats
     st.download_button("📥 Télécharger les résultats (CSV)",
