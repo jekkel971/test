@@ -28,24 +28,20 @@ if "matches_df" not in st.session_state:
         "away_last5"
     ])
 
-# ---------------- SÉLECTION RAPIDE DES ÉQUIPES ----------------
-st.subheader("Sélection rapide des équipes")
-saved_teams = list(teams_form.keys())
-col1, col2 = st.columns(2)
+# ---------------- SÉLECTION RAPIDE DES ÉQUIPES AMÉLIORÉE ----------------
+st.subheader("Sélection rapide des équipes existantes")
 
-# Domicile
-with col1:
-    st.markdown("**Équipe Domicile**")
-    for team in saved_teams:
-        if st.button(f"{team} (domicile)"):
-            st.session_state.home_team = team
+saved_teams = sorted(teams_form.keys())
+if saved_teams:
+    selected_team = st.selectbox("Choisir une équipe existante", saved_teams)
 
-# Extérieur
-with col2:
-    st.markdown("**Équipe Extérieure**")
-    for team in saved_teams:
-        if st.button(f"{team} (extérieur)"):
-            st.session_state.away_team = team
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(f"🏠 Mettre {selected_team} en domicile"):
+            st.session_state.home_team = selected_team
+    with col2:
+        if st.button(f"🛫 Mettre {selected_team} en extérieur"):
+            st.session_state.away_team = selected_team
 
 # Valeurs par défaut pour le formulaire
 home_team_default = st.session_state.get("home_team", "")
