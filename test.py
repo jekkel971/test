@@ -31,7 +31,6 @@ if "matches_df" not in st.session_state:
 # ---------------- SÉLECTION RAPIDE DES ÉQUIPES ----------------
 st.subheader("Sélection rapide des équipes existantes")
 saved_teams = sorted(teams_form.keys())
-
 if saved_teams:
     selected_team = st.selectbox("Choisir une équipe existante", saved_teams)
     place = st.radio(f"Mettre {selected_team} en :", ("Domicile", "Extérieur"))
@@ -115,22 +114,21 @@ def calculate_prob(home_last5, away_last5, home_goals, home_against, away_goals,
     home_form = calculate_form_score(home_last5)
     away_form = calculate_form_score(away_last5)
 
-    # Force offensive / défensive
-    home_attack = home_goals / max(home_goals+home_against,1)
-    away_attack = away_goals / max(away_goals+away_against,1)
-    home_defense = 1 - away_attack
-    away_defense = 1 - home_attack
-
-    # Score combiné
-    home_score = 0.5*home_form + 0.25*home_attack + 0.25*home_defense
-    away_score = 0.5*away_form + 0.25*away_attack + 0.25*away_defense
-
-    # Influence des cotes
+    # Base probabilités implicites par les cotes
     prob_home_cote = 1 / cote_home
     prob_away_cote = 1 / cote_away
+    total_cote = prob_home_cote + prob_away_cote
+    prob_home_base = prob_home_cote / total_cote
+    prob_away_base = prob_away_cote / total_cote
 
-    prob_home = 0.7*home_score + 0.3*prob_home_cote
-    prob_away = 0.7*away_score + 0.3*prob_away_cote
+    # Ajustement léger avec forme et stats (max ±10%)
+    home_attack = home_goals / max(home_goals + home_against,1)
+    away_attack = away_goals / max(away_goals + away_against,1)
+    home_adjust = 0.1 * (home_form + 0.5*home_attack - 0.5*away_attack)
+    away_adjust = 0.1 * (away_form + 0.5*away_attack - 0.5*home_attack)
+
+    prob_home = prob_home_base + home_adjust
+    prob_away = prob_away_base + away_adjust
 
     # Normalisation
     total = prob_home + prob_away
@@ -181,8 +179,8 @@ def update_form_after_match(df_analysis):
         teams_form[home_team] = ",".join(home_seq)
         teams_form[away_team] = ",".join(away_seq)
 
-    with open(FORM_FILE,"w") as f:
-        json.dump(teams_form,f)
+    with open(FORM_FILE, "w") as f:
+        json.dump(teams_form, f)
 
 # ---------------- AFFICHAGE ----------------
 if len(st.session_state.matches_df) > 0:
@@ -199,16 +197,16 @@ if len(st.session_state.matches_df) > 0:
     mises = []
     for _, row in df_analysis.iterrows():
         cote = row["cote_home"] if row["Winner"] == row["home_team"] else row["cote_away"]
-        p = row["Probabilité victoire"] / 100
+        p = row["Probabilité victoire"]/100
         b = cote - 1
         q = 1 - p
-        f_star = max((b*p - q)/b, 0)
-        mises.append(round(f_star * budget_total, 2))
+        f_star = max((b*p - q)/b,0)
+        mises.append(round(f_star*budget_total,2))
     df_analysis["Mise conseillée (€)"] = mises
 
     st.dataframe(df_analysis[["home_team","away_team","Winner","Probabilité victoire","Score Sécurité","Mise conseillée (€)"]], use_container_width=True)
 
-    # ---------------- GRAPHIQUE VISUEL ----------------
+    # Graphique Altair
     st.subheader("📈 Visualisation des probabilités et sécurité des matchs")
     chart_data = df_analysis.melt(
         id_vars=["home_team","away_team","Score Sécurité"],
@@ -228,5 +226,6 @@ if len(st.session_state.matches_df) > 0:
     st.success("✅ Formes mises à jour automatiquement")
 
     st.download_button("📥 Télécharger résultats (CSV)", df_analysis.to_csv(index=False).encode("utf-8"), "analyse_matchs.csv","text/csv")
+
 else:
     st.info("Ajoute au moins un match pour commencer l’analyse ⚙️")
