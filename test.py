@@ -196,34 +196,9 @@ if len(st.session_state.matches_df)>0:
     df_analysis["Mise conseillée (€)"]=mises
     st.dataframe(df_analysis[["home_team","away_team","Winner","Probabilité victoire","Score Sécurité","Mise conseillée (€)"]],use_container_width=True)
 
-    import altair as alt
-
-# ---------------- GRAPHIQUE VISUEL ----------------
-if len(df_analysis) > 0:
-    st.subheader("📈 Visualisation des probabilités et sécurité des matchs")
-
-    chart_data = df_analysis.melt(
-        id_vars=["home_team","away_team","Score Sécurité"],
-        value_vars=["Probabilité victoire"],
-        var_name="Type",
-        value_name="Probabilité (%)"
-    )
-
-    chart = alt.Chart(chart_data).mark_bar().encode(
-        x=alt.X("home_team:N", title="Équipe Domicile"),
-        y=alt.Y("Probabilité (%):Q"),
-        color=alt.Color("away_team:N", title="Équipe Extérieure"),
-        tooltip=["home_team","away_team","Probabilité (%)","Score Sécurité"]
-    ).properties(width=800, height=400).interactive()
-
-    st.altair_chart(chart, use_container_width=True)
-
-    st.info("✅ Plus la barre est haute et le score de sécurité est élevé, plus le match est considéré sûr.")
-
     update_form_after_match(df_analysis)
     st.success("✅ Formes mises à jour automatiquement")
 
     st.download_button("📥 Télécharger résultats (CSV)", df_analysis.to_csv(index=False).encode("utf-8"), "analyse_matchs.csv","text/csv")
 else:
     st.info("Ajoute au moins un match pour commencer l’analyse ⚙️")
-
