@@ -28,38 +28,36 @@ if "matches_df" not in st.session_state:
         "away_last5"
     ])
 
-# ---------------- FORMULAIRE AVEC SÉLECTION D'ÉQUIPE ----------------
+# ---------------- SÉLECTION RAPIDE DES ÉQUIPES ----------------
+st.subheader("Sélection rapide des équipes")
+saved_teams = list(teams_form.keys())
+col1, col2 = st.columns(2)
+
+# Domicile
+with col1:
+    st.markdown("**Équipe Domicile**")
+    for team in saved_teams:
+        if st.button(f"{team} (domicile)"):
+            st.session_state.home_team = team
+
+# Extérieur
+with col2:
+    st.markdown("**Équipe Extérieure**")
+    for team in saved_teams:
+        if st.button(f"{team} (extérieur)"):
+            st.session_state.away_team = team
+
+# Valeurs par défaut pour le formulaire
+home_team_default = st.session_state.get("home_team", "")
+away_team_default = st.session_state.get("away_team", "")
+
+# ---------------- FORMULAIRE D'AJOUT DE MATCH ----------------
 with st.form("match_form", clear_on_submit=True):
     st.subheader("Équipes et Cotes")
-
-    saved_teams = list(teams_form.keys())
-    saved_teams_sorted = sorted(saved_teams)
-
-    # Équipe domicile
-    st.markdown("**Équipe Domicile**")
-    home_team = None
-    col1, col2 = st.columns([3,7])
-    with col1:
-        for team in saved_teams_sorted:
-            if st.button(team + " (domicile)"):
-                st.session_state.temp_home_team = team
-    with col2:
-        home_team_input = st.text_input("Ou saisissez une nouvelle équipe Domicile")
-    home_team = st.session_state.get("temp_home_team", None) or home_team_input
-
-    # Équipe extérieure
-    st.markdown("**Équipe Extérieure**")
-    away_team = None
-    col1, col2 = st.columns([3,7])
-    with col1:
-        for team in saved_teams_sorted:
-            if st.button(team + " (extérieur)"):
-                st.session_state.temp_away_team = team
-    with col2:
-        away_team_input = st.text_input("Ou saisissez une nouvelle équipe Extérieure")
-    away_team = st.session_state.get("temp_away_team", None) or away_team_input
-
-    # Cotes
+    
+    home_team = st.text_input("Équipe Domicile", value=home_team_default)
+    away_team = st.text_input("Équipe Extérieure", value=away_team_default)
+    
     cote_home = st.number_input("Cote Domicile", 1.01, 10.0, 1.5)
     cote_away = st.number_input("Cote Extérieure", 1.01, 10.0, 1.5)
 
