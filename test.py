@@ -203,4 +203,4 @@ if len(st.session_state.matches_df)>0:
     # Télécharger CSV
     st.download_button("📥 Télécharger résultats (CSV)", df_analysis.to_csv(index=False).encode("utf-8"), "analyse_matchs.csv","text/csv")
 else:
-    st.info("Ajoute au moins un match pour commencer l’analyse
+    st.info("Ajoute au moins un match pour commencer l’analyse ⚙️")
